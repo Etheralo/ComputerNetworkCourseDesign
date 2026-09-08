@@ -2,7 +2,7 @@
 
 ## 1. 文档状态与设计目标
 
-本文最初是课程设计的实施规划，现已按规划落地程序、构建入口、自动测试、报告和展示说明。2026-09-08 在 Python 3.13.5 上执行 19 项测试全部通过；真实公网 DNS 转发已验证。按当前安排，Wireshark 抓包后期在另一台电脑完成，不作为本阶段程序交付的阻塞项。
+本文最初是课程设计的实施规划，现已按规划落地程序、构建入口、自动测试、报告和展示说明。2026-09-08 在 Python 3.13.5 上执行 19 项测试全部通过；真实公网 DNS 转发已验证。Wireshark 抓包应在展示电脑上按 Windows 网卡和端口说明完成。
 
 课程要求来自以下资料：
 
@@ -66,7 +66,9 @@ DNS Relay
     └─ miss/other query ─────> upstream DNS ──> original client
 ```
 
-开发时监听 `127.0.0.1:5353`；功能稳定后再切换到端口 53。启动 Relay 前先保存真实上游 DNS 地址，且禁止把上游配置成 Relay 自己，避免转发环路。
+开发时监听 `127.0.0.1:5353`；功能稳定后再考虑切换到端口 53。
+5353 是非标准 DNS 端口，Wireshark 中需要将 UDP 5353
+`Decode As... -> DNS`。启动 Relay 前先保存真实上游 DNS 地址，且禁止把上游配置成 Relay 自己，避免转发环路。
 
 本地表格式采用每行“IPv4地址 + 空白 + 域名”：
 
@@ -100,23 +102,23 @@ DNS Relay
 
 以下命令要在代码完成后写入根目录 README，并以实际参数为准：
 
-```bash
-# TCP Socket演示
-python3 src/socket_demo/server.py --host 127.0.0.1 --port 9000
-python3 src/socket_demo/client.py --host 127.0.0.1 --port 9000
+```powershell
+# TCP Socket 演示
+py -3 -m src.socket_demo.server --host 127.0.0.1 --port 9000
+py -3 -m src.socket_demo.client --host 127.0.0.1 --port 9000
 
-# DNS Relay开发模式
-python3 src/dns_relay/server.py \
-  --host 127.0.0.1 --port 5353 \
-  --upstream <真实上游DNS> --table config/dnsrelay.txt
+# DNS Relay 开发模式
+py -3 -m src.dns_relay.server --host 127.0.0.1 --port 5353 `
+  --upstream <真实上游DNS> --upstream-port 53 `
+  --table config/dnsrelay.txt
 
-# 直接查询Relay，避免操作系统DNS缓存干扰
-dig @127.0.0.1 -p 5353 local.test A
-dig @127.0.0.1 -p 5353 blocked.test A
-dig @127.0.0.1 -p 5353 www.baidu.com A
+# 直接查询 Relay，避免操作系统 DNS 缓存干扰
+py -3 -m src.dns_relay.query --name local.test --type A
+py -3 -m src.dns_relay.query --name blocked.test --type A
+py -3 -m src.dns_relay.query --name www.baidu.com --type A
 
 # 自动测试
-python3 -m unittest discover -s tests -v
+py -3 -m unittest discover -s tests -v
 ```
 
 切换到端口 53 前，应确认端口未被系统 DNS 服务占用。不要在 Relay 尚未验证时修改整机 DNS 设置，否则程序故障可能造成断网。
@@ -140,8 +142,12 @@ python3 -m unittest discover -s tests -v
 
 ```text
 tcp.port == 9000
-udp.port == 53 || udp.port == 5353
+dns && (udp.port == 5353 || udp.port == 53)
 ```
+
+Windows 抓 `127.0.0.1:5353` 时选择 **Npcap Loopback Adapter**；抓上游转发
+时同时选择 Loopback 和当前 Wi-Fi/以太网网卡。由于 5353 不是标准 DNS 端口，
+捕获后用 **Analyze -> Decode As... -> DNS**，否则可能被识别为 mDNS。
 
 ## 8. 现场展示脚本（约6分钟）
 
@@ -160,7 +166,9 @@ udp.port == 53 || udp.port == 5353
 
 课程报告建议按以下结构编写：课程目标；开发环境；成员分工；总体架构；Socket API流程；DNS报文设计；三个核心处理分支；并发与异常处理；测试环境和测试矩阵；Wireshark分析；问题与解决过程；限制和可选改进；总结。
 
-截图应标注关键字段，而不是只放终端结果。至少准备四张证据图：TCP收发、本地A记录、NXDOMAIN、上游转发。验收表中的“程序概述”要明确填写语言、环境、实现功能及测试情况，成员职责必须与报告一致。
+截图应标注关键字段，而不是只放终端结果。至少准备四张证据图：TCP收发、
+本地A记录、NXDOMAIN、上游转发。验收表中的“程序概述”要明确填写语言、
+环境、实现功能及测试情况，成员职责必须与报告一致。
 
 ## 10. 实施里程碑
 
@@ -169,8 +177,9 @@ udp.port == 53 || udp.port == 5353
 - [x] M3：完成DNS Header与Question解析单元测试。
 - [x] M4：完成本地A记录与NXDOMAIN响应。
 - [x] M5：完成上游转发、超时和并发隔离。
-- [x] M6：19 项自动测试已通过；抓包按安排延期到另一台电脑采集。
-- [x] M7：报告和演示说明已完成；成员信息按实际分工填入原验收记录。
-- [ ] M8：在一台干净机器上按README重新运行全部演示。
+- [x] M6：19 项自动测试已通过；抓包清单和 Windows 操作步骤已完成。
+- [ ] M7：报告和演示说明已完成；成员信息仍需按实际分工填入验收记录。
+- [ ] M8：在一台干净机器上按 README 重新运行全部演示，并将四类 Wireshark
+  抓包或截图放入 `docs/captures/`。
 
 完成标准不是“程序能够启动”，而是三个核心分支均有正确结果、报文字段经Wireshark验证、异常输入不会导致进程崩溃，并且第三方能按照README复现。

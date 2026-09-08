@@ -13,6 +13,13 @@ make demo       # 使用内置伪上游，离线展示 DNS 三个核心分支
 
 `make demo` 的预期结果包括：`local.test → 10.0.0.123`、`blocked.test → RCODE 3`、`public.example → 203.0.113.9`（由演示用伪上游返回）。它不会访问公网。
 
+Windows PowerShell 没有 `make` 时，可直接执行：
+
+```powershell
+py -3 -m unittest discover -s tests -v
+py -3 -m src.dns_relay.demo
+```
+
 ## TCP Socket 演示
 
 打开两个终端，在终端 1 启动服务端：
@@ -50,6 +57,21 @@ dig @127.0.0.1 -p 5353 www.baidu.com A
 dig @127.0.0.1 -p 5353 local.test AAAA
 ```
 
+Windows 没有 `dig` 时，可使用项目内置的标准库查询工具：
+
+```powershell
+py -3 -m src.dns_relay.query --name local.test --type A
+py -3 -m src.dns_relay.query --name blocked.test --type A
+py -3 -m src.dns_relay.query --name www.baidu.com --type A
+py -3 -m src.dns_relay.query --name local.test --type AAAA
+```
+
+上游 DNS 可从 `ipconfig /all` 或下面的 PowerShell 命令中查看：
+
+```powershell
+Get-DnsClientServerAddress -AddressFamily IPv4
+```
+
 可直接查看全部参数：
 
 ```bash
@@ -66,8 +88,10 @@ python3 -m src.dns_relay.server --help
 - `config/`：运行时本地域名表。
 - `docs/`：设计、报告、展示步骤和抓包说明。
 
-更完整的现场操作见 [展示与使用说明](docs/展示与使用说明.md)，实现与结论边界见 [课程设计报告](docs/report.md)。抓包暂不在本机执行，后期换电脑时直接按 [Wireshark 证据清单](docs/captures/README.md) 操作即可。
+更完整的现场操作见 [展示与使用说明](docs/展示与使用说明.md)，实现与结论边界见 [课程设计报告](docs/report.md)。请在展示电脑上按 [Wireshark 证据清单](docs/captures/README.md) 完成抓包，并将最终证据放入 `docs/captures/`。
 
 ## 当前范围
 
 Relay 支持单 Question 标准 DNS 请求，本地只生成 `A/IN` 答案；其他合法类型原样转发。未实现缓存、DNS over TCP、本地 IPv6 记录和 EDNS 专门处理。转发响应由连接式临时 UDP Socket 校验来源，并再次核对 Transaction ID；超时返回 SERVFAIL。
+
+Wireshark 抓取 `127.0.0.1:5353` 时应选择 Npcap Loopback Adapter，并将 UDP 5353 使用 `Decode As... -> DNS` 解码；上游转发还需要同时捕获实际的 Wi-Fi 或以太网网卡。
