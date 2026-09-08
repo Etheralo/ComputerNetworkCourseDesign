@@ -1,0 +1,9 @@
+__pycache__/
+*.py[cod]
+.DS_Store
+.venv/
+*.log
+
+# Packet captures are collected locally and may contain private traffic.
+docs/captures/*.pcap
+docs/captures/*.pcapng

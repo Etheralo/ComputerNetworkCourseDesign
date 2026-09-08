@@ -1,0 +1,34 @@
+DNS Relay independent dig verification
+Date: 2026-09-08
+Relay: 127.0.0.1:15353
+Upstream for this local-only check: 127.0.0.1:15354 (intentionally unused)
+
+$ dig @127.0.0.1 -p 15353 local.test A +noall +comments +answer
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 25107
+;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0
+local.test.        60    IN    A    10.0.0.123
+
+$ dig @127.0.0.1 -p 15353 blocked.test A +noall +comments +answer
+;; ->>HEADER<<- opcode: QUERY, status: NXDOMAIN, id: 58602
+;; flags: qr rd ra; QUERY: 1, ANSWER: 0, AUTHORITY: 0, ADDITIONAL: 0
+
+Relay log excerpts:
+client=127.0.0.1:52474 id=0x6213 name=local.test type=A branch=local-a elapsed_ms=0.2 rcode=0
+client=127.0.0.1:61760 id=0xe4ea name=blocked.test type=A branch=local-nxdomain elapsed_ms=0.1 rcode=3
+
+$ dig @127.0.0.1 -p 15353 example.com A +noall +comments +answer +time=3 +tries=1
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 12692
+;; flags: qr aa rd ra ad; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 1
+example.com.        1    IN    A    198.18.0.6
+
+Relay forwarding log excerpt:
+client=127.0.0.1:57597 id=0x3194 name=example.com type=A branch=upstream upstream=8.8.8.8:53 elapsed_ms=0.5 rcode=0
+
+The example.com address above is the value observed in this network environment,
+not a fixed expected address. The purpose of this check is the successful
+upstream branch and matching transaction ID.
+
+Note: This is sanitized text evidence from live local and upstream runs. It is not a pcap.
+The current macOS environment denied access to /dev/bpf0, so a real Wireshark
+capture must be collected on the presentation machine using this directory's
+README instructions.

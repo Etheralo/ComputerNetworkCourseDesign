@@ -1,0 +1,3 @@
+# IPv4 address    domain name
+0.0.0.0           blocked.test
+10.0.0.123        local.test
